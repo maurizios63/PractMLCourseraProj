@@ -68,7 +68,7 @@ img {
 <h1>Author: Maurizio Spadari</h1>
 <div id="introduction" class="section level2">
 <h2>Introduction</h2>
-<p>This study analyzes the PML data set</p>
+<p>This study analyzes the PML data set and try to implement a machine learning method to make predictions on the test set.</p>
 </div>
 <div id="pdata-cleaning" class="section level2">
 <h2>PData cleaning</h2>
@@ -81,7 +81,7 @@ img {
 drop &lt;- c(&quot;user_name&quot;,&quot;raw_timestamp_part_1&quot;,&quot;raw_timestamp_part_2&quot;,
           &quot;cvtd_timestamp&quot;,&quot;new_window&quot;,&quot;num_window&quot;)
 trainDfR1 &lt;- trainDf[,!(names(trainDf) %in% drop)]</code></pre>
-<p>The next step is to identify the columns that have at least N valid data in within</p>
+<p>The next step is to identify the columns that have at least N valid data in within. The code below transforms each cell into a numeric value and evaluates the number of finite values ( such as value that are not NA.s) and select the columns which meets a certain threshold.</p>
 <pre class="r"><code>thr = 0.97
 trainDfR2 &lt;- as.data.frame(trainDfR1$classe)
 names(trainDfR2)[1] &lt;- &quot;classe&quot;
@@ -95,7 +95,11 @@ for (colName in names(trainDfR1[,!(names(trainDfR1) == &quot;classe&quot;)])) {
     cat(sprintf(&quot;Drop %s %f\n&quot;,colName,vld))
   }
 }</code></pre>
-<p>Using rpart on train subDf</p>
+<p>All surviving columns are complete and therefore no further processing is required.</p>
+</div>
+<div id="using-rf-part-as-algorithm" class="section level2">
+<h2>Using RF part as algorithm</h2>
+<p>The 1st attempt is done by using R part algorithm. The training set is split into a training set (90%) and a cross-validation set (10%)</p>
 <pre class="r"><code>inTrainRPart &lt;- createDataPartition(y=trainDfR2[,1],p=0.9,list=FALSE)
 trainSubDf &lt;- trainDfR2[inTrainRPart,]
 vldSubDf &lt;- trainDfR2[-inTrainRPart,]
@@ -133,13 +137,15 @@ modFitRpart &lt;- train(trainSubDf$classe~.,data=trainSubDf,method=&quot;rpart&q
 ## Detection Rate         0.2847   0.1934   0.0000   0.0000   0.1837
 ## Detection Prevalence   0.2847   0.1934   0.1745   0.1638   0.1837
 ## Balanced Accuracy      1.0000   1.0000       NA       NA   0.6760</code></pre>
-<p>Using random forest</p>
+<p>As shown the accuracy is low.</p>
+</div>
+<div id="using-random-forest-algorithm" class="section level2">
+<h2>Using random forest algorithm</h2>
+<p>The random forest algorithm is used to see if better results are achieved. In order to reduce processing time, 2 simplification has been done. The training set is reducd to 10% of valid data and Principal Component Analysis is performed to reduce number of variables. Both these assumpltions reduce the accuracy of resutls but it can be shown that a result better than R part can still be obtained. Principal component analysis is used to reduce variable The code below shows model extraction</p>
 <pre class="r"><code>inTrainRf &lt;- createDataPartition(y=trainDfR2[,1],p=0.1,list=FALSE)
 trainSubDf &lt;- trainDfR2[inTrainRPart,]
 vldSubDf &lt;- trainDfR2[-inTrainRPart,]
-modFit &lt;- train(classe~.,data=trainPc,method=&quot;rf&quot;)</code></pre>
-<p>Principal component analysis is used to reduce variable</p>
-<pre class="r"><code>preproc &lt;- preProcess(trainSubDf[,-1],method=&quot;pca&quot;,thresh=0.85)
+preproc &lt;- preProcess(trainSubDf[,-1],method=&quot;pca&quot;,thresh=0.85)
 trainPc &lt;- predict(preproc,trainSubDf[,-1])
 modFit &lt;- train(trainSubDf[,1]~.,data=trainPc,method=&quot;rf&quot;)</code></pre>
 <p>Cross Validation on test set</p>
@@ -147,8 +153,11 @@ modFit &lt;- train(trainSubDf[,1]~.,data=trainPc,method=&quot;rf&quot;)</code></
 vldPc &lt;- predict(preproc,vldSubDf[,-1])
 confusionMatrix(vldSubDf[,1],predict(modFit,vldPc))
 testDf &lt;- read.csv2(&quot;../MLProject/pml-testing.csv&quot;,sep=&quot;,&quot;)</code></pre>
-<p>Evaluation on test set</p>
 </div>
+</div>
+<div id="evaluation-on-test-set" class="section level1">
+<h1>Evaluation on test set</h1>
+<p>The code below performs the same pre-processing on test set in order to get the same variables of the train set</p>
 </div>
 
 

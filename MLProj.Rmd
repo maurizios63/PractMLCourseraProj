@@ -8,7 +8,7 @@ output: html_document
 
 
 ## Introduction
-This study analyzes the PML data set
+This study analyzes the PML data set and try to implement a machine learning method to make predictions on the test set.
 
 ##PData cleaning
 The first step is to remove the columns that can not obviously used as a predictor. In this case the columns NOT related to sensor data are removed:
@@ -21,7 +21,7 @@ drop <- c("user_name","raw_timestamp_part_1","raw_timestamp_part_2",
 trainDfR1 <- trainDf[,!(names(trainDf) %in% drop)]
 ```
 
-The next step is to identify the columns that have at least N valid data in within
+The next step is to identify the columns that have at least N valid data in within. The code below transforms each cell into a numeric value and evaluates the number of finite values ( such as value that are not NA.s) and select the columns which meets a certain threshold.
 ```{r,eval=TRUE,echo=TRUE,results="hide",warning=FALSE}
 thr = 0.97
 trainDfR2 <- as.data.frame(trainDfR1$classe)
@@ -39,10 +39,10 @@ for (colName in names(trainDfR1[,!(names(trainDfR1) == "classe")])) {
 
 
 ```
+All surviving columns are complete and therefore no further processing is required.
 
-
-
-Using rpart on train subDf
+## Using RF part as algorithm
+The 1st attempt is done by using R part algorithm. The training set is split into a training set (90%) and a cross-validation set (10%)
 ````{r,eval=TRUE,echo=TRUE}
 inTrainRPart <- createDataPartition(y=trainDfR2[,1],p=0.9,list=FALSE)
 trainSubDf <- trainDfR2[inTrainRPart,]
@@ -52,22 +52,22 @@ confusionMatrix(vldSubDf$classe,predict(modFitRpart,vldSubDf))
 
 ```
 
-Using random forest
+
+As shown the accuracy is low. 
+
+## Using random forest algorithm
+The random forest algorithm is used to see if better results are achieved. In order to reduce processing time, 2 simplification has been done. The training set is reducd to 10% of valid data and Principal Component Analysis is performed to reduce number of variables. Both these assumpltions reduce the accuracy of resutls but it can be shown that a result better than R part can still be obtained.
+Principal component analysis is used to reduce variable
+The code below shows model extraction
 ```{r,eval=FALSE,echo=TRUE}
 inTrainRf <- createDataPartition(y=trainDfR2[,1],p=0.1,list=FALSE)
 trainSubDf <- trainDfR2[inTrainRPart,]
 vldSubDf <- trainDfR2[-inTrainRPart,]
-modFit <- train(classe~.,data=trainPc,method="rf")
-
-```
-
-Principal component analysis is used to reduce variable
-````{r,eval=FALSE,echo=TRUE}
 preproc <- preProcess(trainSubDf[,-1],method="pca",thresh=0.85)
 trainPc <- predict(preproc,trainSubDf[,-1])
 modFit <- train(trainSubDf[,1]~.,data=trainPc,method="rf")
-
 ```
+
 
 Cross Validation on test set
 
@@ -80,7 +80,8 @@ testDf <- read.csv2("../MLProject/pml-testing.csv",sep=",")
 ```
 
 
-Evaluation on test set
+#Evaluation on test set
+The code below performs the same pre-processing on test set in order to get the same variables of the train set 
 ```{r,eval=FALSE,echo=FALSE}
 testDf <- read.csv2("../MLProject/pml-testing.csv",sep=",")
 testDfR1 <- subset(testDf,select = colnames(trainDfR2)[-1])
