@@ -1,9 +1,9 @@
 ---
-output: pdf_document
+output: html_document
 ---
-#Machine Learning: course project**
+#Machine Learning: course project
 
-#Author: Maurizio Spadari**
+#Author: Maurizio Spadari
 
 
 
@@ -13,97 +13,83 @@ This study analyzes the PML data set
 ##PData cleaning
 The first step is to remove the columns that can not obviously used as a predictor. In this case the columns NOT related to sensor data are removed:
 
-```{r}
+```{r,eval=TRUE,echo=TRUE}
+library(caret)
+trainDf <- read.csv2("../MLProject/pml-training.csv",sep=",")
 drop <- c("user_name","raw_timestamp_part_1","raw_timestamp_part_2",
           "cvtd_timestamp","new_window","num_window")
 trainDfR1 <- trainDf[,!(names(trainDf) %in% drop)]
 ```
 
 The next step is to identify the columns that have at least N valid data in within
-```{r}
+```{r,eval=TRUE,echo=TRUE,results="hide",warning=FALSE}
 thr = 0.97
-dropCol = names(trainDfR1[,!(names(trainDfR1) == "classe")])
+trainDfR2 <- as.data.frame(trainDfR1$classe)
+names(trainDfR2)[1] <- "classe"
 for (colName in names(trainDfR1[,!(names(trainDfR1) == "classe")])) {
   x <- as.numeric(as.character(trainDfR1[[colName]]))
   vld <- sum(is.finite(x))/length(trainDfR1[[colName]])
-  #cat(sprintf("%s %f\n",colName,vld))
+  
   if (vld > thr) {
-    dropCol <- dropCol[!dropCol == colName]
+    trainDfR2[,colName] <- x
+  } else {
+    cat(sprintf("Drop %s %f\n",colName,vld))
   }
 }
-cat(sprintf("Dropped columns %s",length(dropCol)))
-trainDfR2 <- trainDf[,!(names(trainDfR1) %in% dropCol)]
+
 
 ```
 
 
-## Correlation analysis
 
-cor command has been used to analyze the correlation matrix between the different regressors. The same results could have been achievedd graphicaclly with the pair command, however due to number of regressors it has been chosen to have simply a numerical value (see appendix for full correlation matrix) 
+Using rpart on train subDf
+````{r,eval=TRUE,echo=TRUE}
+inTrainRPart <- createDataPartition(y=trainDfR2[,1],p=0.9,list=FALSE)
+trainSubDf <- trainDfR2[inTrainRPart,]
+vldSubDf <- trainDfR2[-inTrainRPart,]
+modFitRpart <- train(trainSubDf$classe~.,data=trainSubDf,method="rpart")
+confusionMatrix(vldSubDf$classe,predict(modFitRpart,vldSubDf))
 
-
-
-Based on this analysis it has been chosen to analyze a model with uses regressors with weak correlation between each other: qsec , wt , vs, gear, am, cyl.
-
-
-The analyis is conducted based on consdering the coefficients on t probability and anove for model comparison. The results are provided on the appendix. Based on this analysis it has been decided to use cylinder (as factor) and weight. The next step is to measure how am affects this model.
-
-## Imnpact on transmission
-
-A new model is generated adding am as a regressor.
-```{r}
-fitFull<- lm(mpg~wt+factor(cyl)+factor(am),mtcars)
-summary(fitFull)$coef
-```
-The summary indicates that additional factor is not particularly significative. The probability that am factor is 0 is relativela high.In fact the actual value shown is quite close to 0.
-```{r}
-anova(fit3,fitFull)
-```
-This is also shown by anova analysis that rejects the model with am factor included with high rejection factor.
-```{r}
-par(mfrow=c(1,2))
-plot(fit3,which=1,main="Full model without AM")
-plot(fitFull,which=1,main="Full model with AM")
-```
-The residual analysis shows that both models have same residuals wihch is expected since the am regressor seems to have little influence.
-
-An analysis is done on weigth and cylinder versus transmision
-```{r}
-par(mfrow=c(1,2))
-boxplot(wt~am,mtcars,main="Weigth vs AM",ylab="Weigth",xlab="AM")
-boxplot(cyl~am,mtcars,main="Cylinder vs AM",ylab="Cyl",xlab="AM")
-```
-The diagram seems to indicate that both manual cars has an average greater weight and particularly an higher number of cylinders that adversely affects power consumption. This was also inidcated in correlation matrix.
-
-
-## Conclusion (executive summary)
-
-The analysis above data does not allow to determine whether transmission is direcrtly responsible for higher fuel consumption since major factors seems to be weight and number of cylinders. Since AM is highly correlated with them it si difficult to determine the impact. A possible solution is to operate on a larger data set.
-
-
-# Appendix
-
-##Correlation matrix
-```{r}
-cor(mtcars)
 ```
 
-##Comparison of different models
-```{r}
-fit1 <- lm(mpg~wt,data=mtcars)
-summary(fit1)$coef
-fit2 <- lm(mpg~wt+factor(gear),data=mtcars)
-summary(fit2)$coef
-fit3 <- lm(mpg~wt+factor(cyl),data=mtcars)
-summary(fit3)$coef
-fit4 <- lm(mpg~wt+factor(cyl)+qsec,data=mtcars)
-anova(fit1,fit3,fit4)
-fit5 <- lm(mpg~wt+qsec,data=mtcars)
-anova(fit3,fit5)
-fit6 <- lm(mpg~wt+factor(cyl)+factor(vs),data=mtcars)
-summary(fit6)$coef
-anova(fit3,fit6)
+Using random forest
+```{r,eval=FALSE,echo=TRUE}
+inTrainRf <- createDataPartition(y=trainDfR2[,1],p=0.1,list=FALSE)
+trainSubDf <- trainDfR2[inTrainRPart,]
+vldSubDf <- trainDfR2[-inTrainRPart,]
+modFit <- train(classe~.,data=trainPc,method="rf")
+
 ```
 
+Principal component analysis is used to reduce variable
+````{r,eval=FALSE,echo=TRUE}
+preproc <- preProcess(trainSubDf[,-1],method="pca",thresh=0.85)
+trainPc <- predict(preproc,trainSubDf[,-1])
+modFit <- train(trainSubDf[,1]~.,data=trainPc,method="rf")
+
+```
+
+Cross Validation on test set
+
+```{r,eval=FALSE,echo=TRUE}
+vldSubDf <- trainDfR2[-inTrain,]
+vldPc <- predict(preproc,vldSubDf[,-1])
+confusionMatrix(vldSubDf[,1],predict(modFit,vldPc))
+testDf <- read.csv2("../MLProject/pml-testing.csv",sep=",")
+
+```
+
+
+Evaluation on test set
+```{r,eval=FALSE,echo=FALSE}
+testDf <- read.csv2("../MLProject/pml-testing.csv",sep=",")
+testDfR1 <- subset(testDf,select = colnames(trainDfR2)[-1])
+for (colName in names(testDfR1)) {
+  testDfR1[[colName]] <- as.numeric(as.character(testDfR1[[colName]]))
+}
+#expTest <- predict(modFitRpart,testDfR1)
+expPc <- predict(preproc,testDfR1)
+expTest <- predict(modFit,expPc)
+```
 
 
