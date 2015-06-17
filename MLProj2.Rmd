@@ -56,8 +56,7 @@ confusionMatrix(vldSubDf$classe,predict(modFitRpart,vldSubDf))
 As shown the accuracy is low. 
 
 ## Using random forest algorithm
-The random forest algorithm is used to see if better results are achieved. In order to reduce processing time, 2 simplification has been done. The training set is reducd to 10% of valid data and Principal Component Analysis is performed to reduce number of variables. Both these assumpltions reduce the accuracy of resutls but it can be shown that a result better than R part can still be obtained.
-Principal component analysis is used to reduce variable
+The random forest algorithm is used to see if better results are achieved. In order to reduce processing time, 2 simplification has been done. The training set is reducd to 40% of valid data and Principal Component Analysis is performed to reduce number of variables. Both these assumpltions reduce the accuracy of resutls but it can be shown that a result better than R part can still be obtained.
 The code below shows model extraction
 ```{r,eval=FALSE,echo=TRUE}
 myTrainDf <- trainDfR2
