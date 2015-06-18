@@ -10,7 +10,7 @@ output: html_document
 ## Introduction
 This study analyzes the PML data set and try to implement a machine learning method to make predictions on the test set.
 
-##PData cleaning
+##Data cleaning
 The first step is to read data and  remove the columns that can not obviously used as a predictor. In this case the columns NOT related to sensor data are removed:
 
 ```{r train_read,eval=TRUE,echo=TRUE}
@@ -45,7 +45,7 @@ All surviving columns are complete and therefore no further processing is requir
 
 
 ## Using random forest algorithm
-The random forest algorithm is used to see if better results are achieved. In order to reduce processing time, 2 simplification has been done. The training set is reducd to 50% of valid data. Both these assumpltions reduce the accuracy of resutls but it can be shown that a result better than R part can still be obtained.
+The random forest algorithm is used since after an initial analysis produces better results. A simpler rpart algorithm was previously tried but produced worse resutls. In order to reduce processing time, a simplification has been done. The training set is reducd to 50% of valid data. 
 The code below shows model extraction
 ```{r rf_usage,eval=FALSE,echo=TRUE}
 myTrainDf <- trainDfR2
@@ -56,8 +56,9 @@ vldSubDf <- myTrainDf[-inTrainRf,]
 #modFitRf <- randomForest(classe~.,data=trainSubDf,ntree=1000,do.trace=1)
 #saveRDS(modFitRf,"modFitRf0.5.data")
 ```
+## Cross validation
 Evaluating on validation set (remaining data) to estimate out-of-sample error: due to large run time the model previously computed and saved is re-read. 
-```{r,eval=TRUE,echo=TRUE}
+```{r cross_validation,eval=TRUE,echo=TRUE}
 #modFitRf <- train(classe~.,data=trainSubDf,do.trace=100,method="rf")
 
 modFitR05 <- readRDS("modFitRf0.5.data")
@@ -66,11 +67,6 @@ confusionMatrix(vldSubDf$classe,predict(modFitR05,vldSubDf))
 ```
 Since the result is satisfactory in term of accuracy the model can be used to predict on test set
 
-#Evaluation on test set
-The code below performs the same pre-processing on test set in order to get the same variables of the train set. As an optimisation the preocessing could have been done on a function. 
-
-
-```
 # Prediction on test set 
 The test set is pre-processed by selecting the same predictors used for train database abd all data are converted to numerics. It has been checked that all columns contain valid data
 
