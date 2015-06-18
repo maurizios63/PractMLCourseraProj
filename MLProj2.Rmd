@@ -1,0 +1,101 @@
+---
+output: html_document
+---
+#Machine Learning: course project
+
+#Author: Maurizio Spadari
+
+
+
+## Introduction
+This study analyzes the PML data set and try to implement a machine learning method to make predictions on the test set.
+
+##PData cleaning
+The first step is to read data and  remove the columns that can not obviously used as a predictor. In this case the columns NOT related to sensor data are removed:
+
+```{r train_read,eval=TRUE,echo=TRUE}
+library(caret)
+trainDf <- read.csv2("../MLProject/pml-training.csv",sep=",")
+drop <- c("user_name","raw_timestamp_part_1","raw_timestamp_part_2",
+          "cvtd_timestamp","new_window","num_window","X")
+trainDfR1 <- trainDf[,!(names(trainDf) %in% drop)]
+```
+
+The next step is to identify the columns that have at least N valid data in within. The code below transforms each cell into a numeric value and evaluates the number of finite values ( such as value that are not NA.s) and select the columns which meets a certain threshold (0.97).
+```{r clean_data,eval=TRUE,echo=TRUE,warning=FALSE}
+thr = 0.97
+trainDfR2 <- as.data.frame(trainDfR1$classe)
+names(trainDfR2)[1] <- "classe"
+for (colName in names(trainDfR1[,!(names(trainDfR1) == "classe")])) {
+  x <- as.numeric(as.character(trainDfR1[[colName]]))
+  vld <- sum(is.finite(x))/length(trainDfR1[[colName]])
+  
+  if (vld > thr) {
+    trainDfR2[,colName] <- x
+    cat(sprintf("Keep col %s thr=%f\n",colName,vld))
+  } else {
+    #cat(sprintf("Drop %s %f\n",colName,vld))
+  }
+}
+trainDfR2Dim = dim(trainDfR2)
+cat(sprintf("Data set columns #%d",trainDfR2Dim[1]))
+
+```
+All surviving columns are complete and therefore no further processing is required.
+
+
+## Using random forest algorithm
+The random forest algorithm is used to see if better results are achieved. In order to reduce processing time, 2 simplification has been done. The training set is reducd to 50% of valid data. Both these assumpltions reduce the accuracy of resutls but it can be shown that a result better than R part can still be obtained.
+The code below shows model extraction
+```{r rf_usage,eval=FALSE,echo=TRUE}
+myTrainDf <- trainDfR2
+pct <- 0.5
+inTrainRf <- createDataPartition(y=myTrainDf[,1],p=pct,list=FALSE)
+trainSubDf <- myTrainDf[inTrainRf,]
+vldSubDf <- myTrainDf[-inTrainRf,]
+#modFitRf <- randomForest(classe~.,data=trainSubDf,ntree=1000,do.trace=1)
+#saveRDS(modFitRf,"modFitRf0.5.data")
+```
+Evaluating on validation set (remaining data) to estimate out-of-sample error: due to large run time the model previously computed and saved is re-read. 
+```{r,eval=TRUE,echo=TRUE}
+#modFitRf <- train(classe~.,data=trainSubDf,do.trace=100,method="rf")
+
+modFitR05 <- readRDS("modFitRf0.5.data")
+
+confusionMatrix(vldSubDf$classe,predict(modFitR05,vldSubDf))
+```
+Since the result is satisfactory in term of accuracy the model can be used to predict on test set
+
+#Evaluation on test set
+The code below performs the same pre-processing on test set in order to get the same variables of the train set. As an optimisation the preocessing could have been done on a function. 
+
+
+```
+# Prediction on test set 
+The test set is pre-processed by selecting the same predictors used for train database abd all data are converted to numerics. It has been checked that all columns contain valid data
+
+```{r predict_test,eval=FALSE,echo=TRUE}
+testDf <- read.csv2("../MLProject/pml-testing.csv",sep=",")
+testDfR1 <- subset(testDf,select = colnames(trainDfR2)[-1])
+for (colName in names(testDfR1)) {
+  testDfR1[[colName]] <- as.numeric(as.character(testDfR1[[colName]]))
+}
+expTest_05 <- predict(modFitR05,testDfR1)
+
+#expPc <- predict(preproc,testDfR1)
+#expTest <- predict(modFit,expPc)
+```
+Save data into separate files as required for submission
+```{r data file write,eval=FALSE,echo=TRUE}
+
+ n = length(expTest_05)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(expTest_05[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+
+```
+
+# Conclusion
+The predcition has been successfully submitted with 20/20 correctness. Both these results and out-of sample values on cross-validation set confirms the validity of the approacj.
+
