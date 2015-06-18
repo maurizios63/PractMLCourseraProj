@@ -67,6 +67,7 @@ vldSubDf <- myTrainDf[-inTrainRf,]
 #modFitRf <- randomForest(classe~.,data=trainSubDf,ntree=1000,do.trace=1)
 modFitRf <- train(classe~.,data=trainSubDf,do.trace=100,method="rf")
 confusionMatrix(vldSubDf$classe,predict(modFitRf,vldSubDf))
+
 ```
 
 # PCA
@@ -116,7 +117,9 @@ testDfR1 <- subset(testDf,select = colnames(trainDfR2)[-1])
 for (colName in names(testDfR1)) {
   testDfR1[[colName]] <- as.numeric(as.character(testDfR1[[colName]]))
 }
-expTest <- predict(modFitRf,testDfR1)
+expTest_05 <- predict(modFitRf,testDfR1)
+saveRDS(modFitRf,"modFitRf0.5.data")
+
 #expPc <- predict(preproc,testDfR1)
 #expTest <- predict(modFit,expPc)
 ```
