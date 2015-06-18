@@ -11,9 +11,9 @@ output: html_document
 This study analyzes the PML data set and try to implement a machine learning method to make predictions on the test set.
 
 ##PData cleaning
-The first step is to remove the columns that can not obviously used as a predictor. In this case the columns NOT related to sensor data are removed:
+The first step is to read data and  remove the columns that can not obviously used as a predictor. In this case the columns NOT related to sensor data are removed:
 
-```{r,eval=TRUE,echo=TRUE}
+```{r train_read,eval=TRUE,echo=TRUE}
 library(caret)
 trainDf <- read.csv2("../MLProject/pml-training.csv",sep=",")
 drop <- c("user_name","raw_timestamp_part_1","raw_timestamp_part_2",
@@ -21,8 +21,8 @@ drop <- c("user_name","raw_timestamp_part_1","raw_timestamp_part_2",
 trainDfR1 <- trainDf[,!(names(trainDf) %in% drop)]
 ```
 
-The next step is to identify the columns that have at least N valid data in within. The code below transforms each cell into a numeric value and evaluates the number of finite values ( such as value that are not NA.s) and select the columns which meets a certain threshold.
-```{r,eval=TRUE,echo=TRUE,results="hide",warning=FALSE}
+The next step is to identify the columns that have at least N valid data in within. The code below transforms each cell into a numeric value and evaluates the number of finite values ( such as value that are not NA.s) and select the columns which meets a certain threshold (0.97).
+```{r clean_data,eval=TRUE,echo=TRUE,warning=FALSE}
 thr = 0.97
 trainDfR2 <- as.data.frame(trainDfR1$classe)
 names(trainDfR2)[1] <- "classe"
@@ -32,96 +32,70 @@ for (colName in names(trainDfR1[,!(names(trainDfR1) == "classe")])) {
   
   if (vld > thr) {
     trainDfR2[,colName] <- x
+    cat(sprintf("Keep col %s thr=%f\n",colName,vld))
   } else {
-    cat(sprintf("Drop %s %f\n",colName,vld))
+    #cat(sprintf("Drop %s %f\n",colName,vld))
   }
 }
-
+trainDfR2Dim = dim(trainDfR2)
+cat(sprintf("Data set columns #%d",trainDfR2Dim[1]))
 
 ```
 All surviving columns are complete and therefore no further processing is required.
 
-## Using RF part as algorithm
-The 1st attempt is done by using R part algorithm. The training set is split into a training set (90%) and a cross-validation set (10%)
-````{r,eval=TRUE,echo=TRUE}
-inTrainRPart <- createDataPartition(y=trainDfR2[,1],p=0.8,list=FALSE)
-trainSubDf <- trainDfR2[inTrainRPart,]
-vldSubDf <- trainDfR2[-inTrainRPart,]
-modFitRpart <- train(trainSubDf$classe~.,data=trainSubDf,method="rpart")
-confusionMatrix(vldSubDf$classe,predict(modFitRpart,vldSubDf))
-
-```
-
-
-As shown the accuracy is low. 
 
 ## Using random forest algorithm
-The random forest algorithm is used to see if better results are achieved. In order to reduce processing time, 2 simplification has been done. The training set is reducd to 40% of valid data and Principal Component Analysis is performed to reduce number of variables. Both these assumpltions reduce the accuracy of resutls but it can be shown that a result better than R part can still be obtained.
+The random forest algorithm is used to see if better results are achieved. In order to reduce processing time, 2 simplification has been done. The training set is reducd to 50% of valid data. Both these assumpltions reduce the accuracy of resutls but it can be shown that a result better than R part can still be obtained.
 The code below shows model extraction
-```{r,eval=FALSE,echo=TRUE}
+```{r rf_usage,eval=FALSE,echo=TRUE}
 myTrainDf <- trainDfR2
 pct <- 0.5
 inTrainRf <- createDataPartition(y=myTrainDf[,1],p=pct,list=FALSE)
 trainSubDf <- myTrainDf[inTrainRf,]
 vldSubDf <- myTrainDf[-inTrainRf,]
 #modFitRf <- randomForest(classe~.,data=trainSubDf,ntree=1000,do.trace=1)
-modFitRf <- train(classe~.,data=trainSubDf,do.trace=100,method="rf")
-confusionMatrix(vldSubDf$classe,predict(modFitRf,vldSubDf))
-
+#saveRDS(modFitRf,"modFitRf0.5.data")
 ```
+Evaluating on validation set (remaining data) to estimate out-of-sample error: due to large run time the model previously computed and saved is re-read. 
+```{r,eval=TRUE,echo=TRUE}
+#modFitRf <- train(classe~.,data=trainSubDf,do.trace=100,method="rf")
 
-# PCA
-```{r,eval=FALSE,echo=TRUE}
-preproc <- preProcess(trainSubDf[,-1],method="pca",thresh=0.9)
-trainPc <- predict(preproc,trainSubDf[,-1])
-modFitRfPc <- train(trainSubDf[,1]~.,data=trainPc,do.trace=100,method="rf")
-vldPc <- predict(preproc,vldSubDf[,-1])
-confusionMatrix(vldSubDf[,1],predict(modFitRfPc,vldPc))
+modFitR05 <- readRDS("modFitRf0.5.data")
+
+confusionMatrix(vldSubDf$classe,predict(modFitR05,vldSubDf))
 ```
-
-
-Cross Validation on test set
-
-```{r,eval=FALSE,echo=TRUE}
-vldSubDf <- trainDfR2[-inTrain,]
-vldPc <- predict(preproc,vldSubDf[,-1])
-confusionMatrix(vldSubDf[,1],predict(modFit,vldPc))
-testDf <- read.csv2("../MLProject/pml-testing.csv",sep=",")
-drop <- c("user_name","raw_timestamp_part_1","raw_timestamp_part_2",
-          "cvtd_timestamp","new_window","num_window")
-testDfR1 <- testDf[,!(names(testDf) %in% drop)]
-```
-```{r}
-thr = 0.97
-testDfR2 <- as.data.frame(testDfR1$X)
-names(testDfR2)[1] <- "X"
-for (colName in names(testDfR1[,!(names(testDfR1) == "X")])) {
-  x <- as.numeric(as.character(testDfR1[[colName]]))
-  vld <- sum(is.finite(x))/length(testDfR1[[colName]])
-  
-  if (vld > thr) {
-    testDfR2[,colName] <- x
-    cat(sprintf("Keep %s %f\n",colName,vld))
-
-  }
-}
-
-```
-
+Since the result is satisfactory in term of accuracy the model can be used to predict on test set
 
 #Evaluation on test set
-The code below performs the same pre-processing on test set in order to get the same variables of the train set 
-```{r,eval=FALSE,echo=FALSE}
+The code below performs the same pre-processing on test set in order to get the same variables of the train set. As an optimisation the preocessing could have been done on a function. 
+
+
+```
+# Prediction on test set 
+The test set is pre-processed by selecting the same predictors used for train database abd all data are converted to numerics. It has been checked that all columns contain valid data
+
+```{r predict_test,eval=FALSE,echo=TRUE}
 testDf <- read.csv2("../MLProject/pml-testing.csv",sep=",")
 testDfR1 <- subset(testDf,select = colnames(trainDfR2)[-1])
 for (colName in names(testDfR1)) {
   testDfR1[[colName]] <- as.numeric(as.character(testDfR1[[colName]]))
 }
-expTest_05 <- predict(modFitRf,testDfR1)
-saveRDS(modFitRf,"modFitRf0.5.data")
+expTest_05 <- predict(modFitR05,testDfR1)
 
 #expPc <- predict(preproc,testDfR1)
 #expTest <- predict(modFit,expPc)
 ```
+Save data into separate files as required for submission
+```{r data file write,eval=FALSE,echo=TRUE}
 
+ n = length(expTest_05)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(expTest_05[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+
+```
+
+# Conclusion
+The predcition has been successfully submitted with 20/20 correctness. Both these results and out-of sample values on cross-validation set confirms the validity of the approacj.
 
